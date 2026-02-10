@@ -152,13 +152,7 @@ export default function EmployeeDetailPage() {
                 <div>
                   <label className="text-sm font-medium text-gray-500">Date of Birth</label>
                   <p className="text-sm text-gray-900 mt-1">
-                    {employee.dob 
-                      ? (typeof employee.dob === 'string' 
-                          ? safeFormatDate(employee.dob, 'N/A')
-                          : employee.dob instanceof Date
-                          ? safeFormatDate(employee.dob.toISOString().split('T')[0], 'N/A')
-                          : 'N/A')
-                      : 'N/A'}
+                    {safeFormatDate(employee.dob, 'N/A')}
                   </p>
                 </div>
                 <div>
@@ -194,20 +188,14 @@ export default function EmployeeDetailPage() {
                         ? 'bg-amber-100 text-amber-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {employee.employee_status || 'N/A'}
+                      {employee.employee_status === '1' ? 'Active' : employee.employee_status === '2' ? 'Incharge' : employee.employee_status === '3' ? 'Suspended' : (employee.employee_status || 'N/A')}
                     </span>
                   </p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Date of Retirement</label>
                   <p className="text-sm text-gray-900 mt-1">
-                    {employee.dor 
-                      ? (typeof employee.dor === 'string' 
-                          ? safeFormatDate(employee.dor, 'N/A')
-                          : employee.dor instanceof Date
-                          ? safeFormatDate(employee.dor.toISOString().split('T')[0], 'N/A')
-                          : 'N/A')
-                      : 'N/A'}
+                    {safeFormatDate(employee.dor, 'N/A')}
                   </p>
                 </div>
               </div>

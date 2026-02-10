@@ -15,6 +15,7 @@ export interface BackendEmployee {
   department_code: string;
   distcode: string;
   distname: string;
+  description_long?: string;
   mobileno: string;
   email1: string;
   doj?: string | Date | null; // Date of joining (optional, can be null/empty)
@@ -32,7 +33,7 @@ export interface Employee {
   id: number; // Generated from employeeid or index
   name: string;
   designation: string;
-  department: string; // Maps from department_name
+  department: string; // Position column: description_long (ULB name), fallback distname, department_name
   cfmsId: string; // Maps from cfms_id
   employeeId: string; // Maps from employeeid
   email: string; // Maps from email1
@@ -131,17 +132,17 @@ export function mapBackendToFrontendEmployee(
       id: index + 1,
       name: `${backend.name || ""} ${backend.surname || ""}`.trim() || `Employee ${index + 1}`,
       designation: backend.designation || "",
-      department: backend.department_name || backend.distname || "",
+      department: backend.description_long || backend.distname || backend.department_name || "",
       cfmsId: backend.cfms_id || "",
       employeeId: backend.employeeid || "",
       email: backend.email1 || "",
       phone: backend.mobileno || "",
       mobile: backend.mobileno || "",
-      office: `${backend.department_name || backend.distname || ""} Municipal Office`.trim() || "Municipal Office",
+      office: `${backend.description_long || backend.distname || backend.department_name || ""} Municipal Office`.trim() || "Municipal Office",
       birthday: birthday || defaultBirthday, // Use dob if available, otherwise default
       retirementDate: retirementDate,
       joiningDate: joiningDate,
-      currentPosition: `${backend.designation || ""} - ${backend.department_name || backend.distname || ""}`.trim() || "Unknown Position",
+      currentPosition: `${backend.designation || ""} - ${backend.description_long || backend.distname || backend.department_name || ""}`.trim() || "Unknown Position",
       previousPosition: "Assistant Commissioner", // Default value
       charges: "None", // Default value
       responsibilities,
@@ -168,17 +169,17 @@ export function mapBackendToFrontendEmployee(
       id: index + 1,
       name: backend.name || `Employee ${index + 1}`,
       designation: backend.designation || "",
-      department: backend.department_name || backend.distname || "",
+      department: backend.description_long || backend.distname || backend.department_name || "",
       cfmsId: backend.cfms_id || "",
       employeeId: backend.employeeid || "",
       email: backend.email1 || "",
       phone: backend.mobileno || "",
       mobile: backend.mobileno || "",
-      office: `${backend.department_name || backend.distname || ""} Municipal Office`.trim() || "Municipal Office",
+      office: `${backend.description_long || backend.distname || backend.department_name || ""} Municipal Office`.trim() || "Municipal Office",
       birthday: "1970-01-01",
       retirementDate: "",
       joiningDate: "",
-      currentPosition: `${backend.designation || ""} - ${backend.department_name || backend.distname || ""}`.trim() || "Unknown Position",
+      currentPosition: `${backend.designation || ""} - ${backend.description_long || backend.distname || backend.department_name || ""}`.trim() || "Unknown Position",
       previousPosition: "Assistant Commissioner",
       charges: "None",
       responsibilities: "Regular",

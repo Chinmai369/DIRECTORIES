@@ -17,7 +17,11 @@ export function safeParseDate(value?: string | Date | null): string | null {
       if (isNaN(value.getTime())) {
         return null;
       }
-      return value.toISOString().split('T')[0];
+      // Use local date methods instead of toISOString to avoid timezone conversion
+      const year = value.getFullYear();
+      const month = (value.getMonth() + 1).toString().padStart(2, '0');
+      const day = value.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
 
     // If string, try to parse
@@ -33,7 +37,7 @@ export function safeParseDate(value?: string | Date | null): string | null {
       const ddmmyyyyMatch = trimmed.match(ddmmyyyyPattern);
       
       if (ddmmyyyyMatch) {
-        // Parse DD/MM/YYYY format
+        // Parse DD/MM/YYYY format directly without Date object
         const day = parseInt(ddmmyyyyMatch[1], 10);
         const month = parseInt(ddmmyyyyMatch[2], 10);
         const year = parseInt(ddmmyyyyMatch[3], 10);
@@ -44,23 +48,8 @@ export function safeParseDate(value?: string | Date | null): string | null {
           return null;
         }
         
-        // Create date object (month is 0-indexed in JavaScript Date)
-        const date = new Date(year, month - 1, day);
-        
-        // Verify the date is valid (handles invalid dates like 31/02/2000)
-        if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-          console.warn('[safeParseDate] Invalid date (e.g., 31/02):', value);
-          return null;
-        }
-        
-        // Check if date is valid
-        if (isNaN(date.getTime())) {
-          console.warn('[safeParseDate] Invalid date value:', value);
-          return null;
-        }
-        
-        // Return ISO string in YYYY-MM-DD format
-        return date.toISOString().split('T')[0];
+        // Return ISO string in YYYY-MM-DD format directly (no timezone conversion)
+        return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       }
 
       // Try to parse as ISO format or other standard formats
@@ -72,8 +61,11 @@ export function safeParseDate(value?: string | Date | null): string | null {
         return null;
       }
 
-      // Return ISO string in YYYY-MM-DD format
-      return date.toISOString().split('T')[0];
+      // Return ISO string in YYYY-MM-DD format using local methods
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
 
     // Fallback for any other type
@@ -143,29 +135,59 @@ export function safeCreateDate(value?: string | Date | null): Date | null {
 }
 
 /**
- * Safely formats a date string for display
- * Returns empty string or fallback for invalid dates
- * @param dateString - Date string (DD/MM/YYYY or ISO format)
+ * Safely formats a date string for display without timezone conversion
+ * Handles DD/MM/YYYY format directly as string manipulation
+ * @param dateString - Date string in DD/MM/YYYY format
  * @param fallback - Fallback string if date is invalid (default: '')
  * @returns Formatted date string or fallback
  */
-export function safeFormatDate(dateString: string | null | undefined, fallback: string = ''): string {
+export function safeFormatDate(dateString: string | Date | null | undefined, fallback: string = ''): string {
   if (!dateString) {
     return fallback;
   }
 
-  const date = safeCreateDate(dateString);
-  if (!date) {
-    return fallback;
+  // Handle as string directly to avoid timezone issues
+  if (typeof dateString === 'string') {
+    const trimmed = dateString.trim();
+    if (trimmed === '') {
+      return fallback;
+    }
+
+    // Check if it's in DD/MM/YYYY format
+    const ddmmyyyyPattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    const ddmmyyyyMatch = trimmed.match(ddmmyyyyPattern);
+    
+    if (ddmmyyyyMatch) {
+      const day = parseInt(ddmmyyyyMatch[1], 10);
+      const month = parseInt(ddmmyyyyMatch[2], 10);
+      const year = parseInt(ddmmyyyyMatch[3], 10);
+      
+      // Validate date components
+      if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+        return fallback;
+      }
+      
+      // Format as DD-MMM-YYYY (e.g., 15-Jan-2000)
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${day.toString().padStart(2, '0')}-${monthNames[month - 1]}-${year}`;
+    }
+
+    // For other formats, return as-is
+    return trimmed;
   }
 
-  try {
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  } catch (error) {
-    return fallback;
+  // Handle Date objects (fallback case - but avoid toISOString)
+  if (dateString instanceof Date) {
+    if (isNaN(dateString.getTime())) {
+      return fallback;
+    }
+    // Use local date methods instead of toISOString to avoid timezone conversion
+    const day = dateString.getDate();
+    const month = dateString.getMonth();
+    const year = dateString.getFullYear();
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${day.toString().padStart(2, '0')}-${monthNames[month]}-${year}`;
   }
+
+  return fallback;
 }

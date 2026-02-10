@@ -20,6 +20,7 @@ const Employee = sequelize.define(
 
     distcode: DataTypes.STRING,
     distname: DataTypes.STRING,
+    description_long: DataTypes.STRING,
 
     mobileno: DataTypes.STRING,
     email1: DataTypes.STRING,
