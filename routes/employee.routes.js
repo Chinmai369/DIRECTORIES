@@ -5,6 +5,9 @@ const employeeController = require("../server/controllers/employee.controller");
 
 router.get("/", employeeController.getEmployees);
 router.get("/stats", employeeController.getEmployeeStats);
+router.get("/validate/:cfmsId", employeeController.validateCfmsId);
+router.get("/search-all", employeeController.searchAllEmployees);
 router.get("/:id", employeeController.getEmployeeById);
+router.post("/", employeeController.addEmployee);
 
 module.exports = router;

@@ -161,6 +161,69 @@ export const employeeService = {
     console.log('[API] Stats response received:', response.data);
     return response.data;
   },
+
+  /**
+   * Validate CFMS ID against existing database
+   */
+  validateCfmsId: async (cfmsId: string): Promise<{
+    success: boolean;
+    message: string;
+    exists: boolean;
+    employee?: any;
+  }> => {
+    console.log('[API] Validating CFMS ID:', cfmsId);
+    const response = await api.get(`/employees/validate/${cfmsId}`);
+    console.log('[API] CFMS validation response:', response.data);
+    return response.data;
+  },
+
+  /**
+   * Search all employees without position filter (for add employee)
+   */
+  searchAllEmployees: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    distcode?: string;
+    dept_id?: number;
+    designation?: string;
+    status?: 'regular' | 'incharge' | 'suspended';
+    birthdayMonth?: 'current' | 'next';
+    retiringYear?: 'current';
+  }): Promise<EmployeesResponse> => {
+    console.log('[API] Searching all employees from /employees/search-all');
+    const queryParams = new URLSearchParams();
+    
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.search) queryParams.append("search", params.search);
+    if (params?.distcode) queryParams.append("distcode", params.distcode);
+    if (params?.dept_id) queryParams.append("dept_id", params.dept_id.toString());
+    if (params?.designation) queryParams.append("designation", params.designation);
+    if (params?.status) queryParams.append("status", params.status);
+    if (params?.birthdayMonth) queryParams.append("birthdayMonth", params.birthdayMonth);
+    if (params?.retiringYear) queryParams.append("retiringYear", params.retiringYear);
+
+    const queryString = queryParams.toString();
+    const url = `/employees/search-all${queryString ? `?${queryString}` : ""}`;
+
+    const response = await api.get<EmployeesResponse>(url);
+    return response.data;
+  },
+
+  /**
+   * Add new employee
+   */
+  addEmployee: async (employeeData: any): Promise<{
+    success: boolean;
+    message: string;
+    employee?: any;
+  }> => {
+    console.log('[API] Adding new employee:', employeeData);
+    const response = await api.post('/employees', employeeData);
+    console.log('[API] Add employee response:', response.data);
+    return response.data;
+  },
 };
 
 export default api;

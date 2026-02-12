@@ -25,12 +25,21 @@ exports.getEmployees = async (req, res) => {
     if (dept_id) whereConditions.push({ dept_id });
     if (designation) whereConditions.push({ designation });
 
-    // 👇 COMMISSIONER FILTER
+    // 👇 COMMISSIONER AND DIRECTOR FILTER (always filter when position param exists)
     if (position) {
       whereConditions.push({
-        position_name: {
-          [Op.like]: `%${position}%`
-        }
+        [Op.or]: [
+          {
+            position_name: {
+              [Op.like]: `%COMMISSIONER%`
+            }
+          },
+          {
+            position_name: {
+              [Op.like]: `%DIRECTOR%`
+            }
+          }
+        ]
       });
     }
 
@@ -171,12 +180,331 @@ exports.getEmployeeById = async (req, res) => {
     }
   };
 
+  exports.validateCfmsId = async (req, res) => {
+    try {
+      const { cfmsId } = req.params;
+      
+      if (!cfmsId) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'CFMS ID is required' 
+        });
+      }
+
+      // Check if CFMS ID exists in database
+      const existingEmployee = await Employee.findOne({
+        where: { cfms_id: cfmsId }
+      });
+
+      if (existingEmployee) {
+        return res.status(409).json({ 
+          success: false, 
+          message: 'Employee with this CFMS ID already exists',
+          exists: true,
+          employee: {
+            employeeid: existingEmployee.employeeid,
+            name: `${existingEmployee.name} ${existingEmployee.surname || ''}`.trim(),
+            designation: existingEmployee.designation,
+            department_name: existingEmployee.department_name,
+            cfms_id: existingEmployee.cfms_id
+          }
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: 'CFMS ID is available',
+        exists: false
+      });
+
+    } catch (err) {
+      console.error('[validateCfmsId] Error:', err);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error validating CFMS ID' 
+      });
+    }
+  };
+
+  exports.addEmployee = async (req, res) => {
+    try {
+      const {
+        employeeid,
+        cfms_id,
+        name,
+        surname,
+        fathername,
+        designation,
+        desgcode,
+        dept_id,
+        department_name,
+        department_code,
+        distcode,
+        distname,
+        description_long,
+        mobileno,
+        email1,
+        doj,
+        dor,
+        dob,
+        basicpay,
+        gross,
+        gender_desc,
+        employee_status
+      } = req.body;
+
+      // Check if CFMS ID already exists
+      const existingCfms = await Employee.findOne({
+        where: { cfms_id }
+      });
+
+      if (existingCfms) {
+        return res.status(409).json({
+          success: false,
+          message: 'Employee with this CFMS ID already exists'
+        });
+      }
+
+      // Check if Employee ID already exists
+      if (employeeid) {
+        const existingEmployee = await Employee.findOne({
+          where: { employeeid }
+        });
+
+        if (existingEmployee) {
+          return res.status(409).json({
+            success: false,
+            message: 'Employee with this Employee ID already exists'
+          });
+        }
+      }
+
+      // Create new employee
+      const newEmployee = await Employee.create({
+        employeeid: employeeid || `EMP${Date.now()}`,
+        cfms_id,
+        name,
+        surname,
+        fathername,
+        designation,
+        desgcode,
+        dept_id,
+        department_name,
+        department_code,
+        distcode,
+        distname,
+        description_long,
+        mobileno,
+        email1,
+        doj,
+        dor,
+        dob,
+        basicpay,
+        gross,
+        gender_desc,
+        employee_status
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Employee added successfully',
+        employee: newEmployee
+      });
+
+    } catch (err) {
+      console.error('[addEmployee] Error:', err);
+      res.status(500).json({
+        success: false,
+        message: err.message || 'Error adding employee'
+      });
+    }
+  };
+
+  exports.searchAllEmployees = async (req, res) => {
+    try {
+      const {
+        page = 1,
+        limit = 20,
+        search,
+        distcode,
+        dept_id,
+        designation,
+        status,
+        birthdayMonth,
+        retiringYear,
+      } = req.query;
+
+      const offset = (page - 1) * limit;
+      const whereConditions = [];
+      const conditionTypes = []; // For logging
+
+      if (search) {
+        whereConditions.push({
+          [Op.or]: [
+            { name: { [Op.like]: `%${search}%` } },
+            { surname: { [Op.like]: `%${search}%` } },
+            { employeeid: { [Op.like]: `%${search}%` } },
+            { cfms_id: { [Op.like]: `%${search}%` } },
+            { designation: { [Op.like]: `%${search}%` } },
+            { department_name: { [Op.like]: `%${search}%` } },
+            { distname: { [Op.like]: `%${search}%` } },
+          ],
+        });
+        conditionTypes.push('Search');
+      }
+
+      if (distcode) {
+        whereConditions.push({ distcode });
+        conditionTypes.push('District');
+      }
+      if (dept_id) {
+        whereConditions.push({ dept_id });
+        conditionTypes.push('Department');
+      }
+      if (designation) {
+        whereConditions.push({ designation });
+        conditionTypes.push('Designation');
+      }
+
+      // 👇 Status filters (from card clicks)
+      // Note: Stats endpoint uses '1', '2', '3' but filter uses LIKE for flexibility
+      if (status === "regular") {
+        whereConditions.push({
+          employee_status: { 
+            [Op.or]: [
+              { [Op.like]: "%REGULAR%" },
+              { [Op.eq]: "1" },
+            ]
+          }
+        });
+        conditionTypes.push('Status-Regular');
+      } else if (status === "incharge") {
+        whereConditions.push({
+          employee_status: { 
+            [Op.or]: [
+              { [Op.like]: "%INCHARGE%" },
+              { [Op.eq]: "2" },
+            ]
+          }
+        });
+        conditionTypes.push('Status-Incharge');
+      } else if (status === "suspended") {
+        whereConditions.push({
+          employee_status: { 
+            [Op.or]: [
+              { [Op.like]: "%SUSPENDED%" },
+              { [Op.eq]: "3" },
+            ]
+          }
+        });
+        conditionTypes.push('Status-Suspended');
+      }
+
+      // 👇 Birthday Month filter
+      if (birthdayMonth === "current") {
+        whereConditions.push({
+          [Op.and]: [
+            { dob: { [Op.ne]: null } },
+            { dob: { [Op.ne]: '' } },
+            sequelize.where(
+              sequelize.fn('MONTH', sequelize.fn('STR_TO_DATE', sequelize.col('dob'), '%d/%m/%Y')),
+              sequelize.fn('MONTH', sequelize.literal('CURDATE()'))
+            )
+          ]
+        });
+        conditionTypes.push('Birthday-Current');
+      } else if (birthdayMonth === "next") {
+        whereConditions.push({
+          [Op.and]: [
+            { dob: { [Op.ne]: null } },
+            { dob: { [Op.ne]: '' } },
+            sequelize.where(
+              sequelize.fn('MONTH', sequelize.fn('STR_TO_DATE', sequelize.col('dob'), '%d/%m/%Y')),
+              sequelize.fn('MONTH', sequelize.literal('DATE_ADD(CURDATE(), INTERVAL 1 MONTH)'))
+            )
+          ]
+        });
+        conditionTypes.push('Birthday-Next');
+      }
+
+      // 👇 Retirement Year filter
+      if (retiringYear === "current") {
+        whereConditions.push({
+          [Op.and]: [
+            { dor: { [Op.ne]: null } },
+            { dor: { [Op.ne]: '' } },
+            sequelize.where(
+              sequelize.fn('YEAR', sequelize.fn('STR_TO_DATE', sequelize.col('dor'), '%d/%m/%Y')),
+              sequelize.fn('YEAR', sequelize.literal('CURDATE()'))
+            )
+          ]
+        });
+        conditionTypes.push('Retiring-Current');
+      }
+
+      console.log('[SearchAllEmployees] filters:', {
+        status,
+        birthdayMonth,
+        retiringYear,
+        search,
+        distcode,
+        dept_id,
+        designation,
+        page,
+        limit,
+        whereConditionsCount: whereConditions.length
+      });
+
+      // Build the final WHERE clause
+      const whereClause = whereConditions.length > 0 ? { [Op.and]: whereConditions } : {};
+
+      console.log('[SearchAllEmployees] where clause structure:', {
+        hasConditions: whereConditions.length > 0,
+        conditionTypes
+      });
+
+      // Execute the query
+      const { count, rows } = await Employee.findAndCountAll({
+        where: whereClause,
+        limit: parseInt(limit),
+        offset: offset,
+        order: [['name', 'ASC']],
+      });
+
+      const result = {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        rowsReturned: rows.length,
+        hasMore: offset + rows.length < count,
+        rows,
+      };
+
+      console.log('[SearchAllEmployees] result:', {
+        total: result.total,
+        rowsReturned: result.rowsReturned,
+        page: result.page,
+        limit: result.limit,
+        hasMore: result.hasMore
+      });
+
+      res.json(result);
+
+    } catch (err) {
+      console.error('[SearchAllEmployees] Database error:', err);
+      res.status(500).json({
+        message: 'Database error occurred',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      });
+    }
+  };
+
   exports.getEmployeeStats = async (req, res) => {
     try {
       // Use the shared Sequelize instance from config/db.js
       console.time('[Stats] Query execution time');
       
-      // Single optimized SQL query to get all stats at once
+      // Single optimized SQL query to get all stats at once (commissioners and directors only)
       const [statsRow] = await sequelize.query(
         `
         SELECT
@@ -202,7 +530,11 @@ exports.getEmployeeById = async (req, res) => {
             AND YEAR(STR_TO_DATE(dor,'%d/%m/%Y')) = YEAR(CURDATE())
           ) AS retiringThisYear
 
-        FROM ext_cfms_stg_t;
+        FROM ext_cfms_stg_t
+        WHERE 
+          UPPER(position_name) LIKE '%COMMISSIONER%' 
+          OR 
+          UPPER(position_name) LIKE '%DIRECTOR%';
         `,
         {
           type: Sequelize.QueryTypes.SELECT

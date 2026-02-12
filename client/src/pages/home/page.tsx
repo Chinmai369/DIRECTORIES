@@ -28,7 +28,7 @@ export default function Home() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [districtFilter, setDistrictFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
-  const [designationFilter, setDesignationFilter] = useState<string>('all');
+  const [designationFilter, setDesignationFilter] = useState<string>("Municipal Commissioner");
   const [cardFilter, setCardFilter] = useState<string | null>(null);
   
   // Card filter state for API params
@@ -70,6 +70,12 @@ export default function Home() {
       setPersonnelList([]);
     }
   }, [personnelList]);
+
+  // Refresh function for modals
+  const refreshEmployees = () => {
+    setCurrentPage(1);
+    // This will trigger the useEffect to refetch data
+  };
 
   // Fetch employees from API
   useEffect(() => {
@@ -113,8 +119,11 @@ export default function Home() {
           params.retiringYear = cardRetiringYearFilter;
         }
 
-        // Note: position filter removed - showing all employees by default
-        // To filter commissioners only, use designation filter instead
+        // Filter commissioners and directors by position_name
+        params.position = "COMMISSIONER_DIRECTOR";
+
+        // Note: position filter used to show commissioners and directors only by default
+        // To show all employees, remove the position filter above
 
         console.log('[Home] Fetching employees with params:', params);
         console.log('[CardClick] filters:', params);
@@ -471,7 +480,7 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Personnel Management Dashboard</h1>
-                <p className="text-sm text-gray-500 mt-1">CDMA Department - Municipal Employees Directory</p>
+                <p className="text-sm text-gray-500 mt-1">CDMA Department - Municipal Commissioners Directory</p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-gray-500">Total Employees</p>
@@ -737,8 +746,7 @@ export default function Home() {
       <AddEmployeeModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onAdd={handleAddEmployee}
-        existingData={personnelList}
+        onAdd={refreshEmployees}
       />
 
       {/* Remove Employee Modal */}

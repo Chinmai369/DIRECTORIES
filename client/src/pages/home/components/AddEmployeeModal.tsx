@@ -1,170 +1,105 @@
-
 import { useState } from 'react';
+import { employeeService } from '../../../services/api';
 import { safeFormatDate } from '../../../utils/dateUtils';
-
-interface PersonnelData {
-  id: number;
-  name: string;
-  designation: string;
-  department: string;
-  cfmsId: string;
-  employeeId: string;
-  email: string;
-  phone: string;
-  mobile: string;
-  office: string;
-  birthday: string;
-  retirementDate: string;
-  joiningDate: string;
-  currentPosition: string;
-  previousPosition: string;
-  charges: string;
-  responsibilities: string;
-  photo: string;
-}
 
 interface AddEmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (employee: PersonnelData) => void;
-  existingData: PersonnelData[];
+  onAdd: () => void; // Refresh callback
 }
 
-// Mock CFMS database - simulating external database lookup
-const cfmsDatabase: Record<string, Partial<PersonnelData>> = {
-  '15200001': {
-    name: 'KRISHNA MURTHY',
-    designation: 'Municipal Commissioner',
-    department: 'ANAKAPALLE',
-    employeeId: '7010001',
-    email: 'krishna.murthy@cdma.gov.in',
-    mobile: '9849900001',
-    birthday: '1975-03-15',
-    retirementDate: '2035-03-31',
-    joiningDate: '2000-06-01',
-    photo: 'https://readdy.ai/api/search-image?query=professional%20indian%20male%20government%20municipal%20commissioner%20formal%20attire%20confident%20expression%20office%20portrait%20administrative%20leader&width=400&height=400&seq=person-new-001&orientation=squarish'
-  },
-  '15200002': {
-    name: 'LAKSHMI DEVI',
-    designation: 'Municipal Commissioner',
-    department: 'VIZIANAGARAM',
-    employeeId: '7010002',
-    email: 'lakshmi.devi@cdma.gov.in',
-    mobile: '9849900002',
-    birthday: '1978-07-22',
-    retirementDate: '2038-07-31',
-    joiningDate: '2003-04-15',
-    photo: 'https://readdy.ai/api/search-image?query=professional%20indian%20female%20government%20municipal%20commissioner%20formal%20business%20attire%20confident%20smile%20office%20portrait%20administrative%20leader&width=400&height=400&seq=person-new-002&orientation=squarish'
-  },
-  '15200003': {
-    name: 'SURESH BABU',
-    designation: 'Municipal Commissioner',
-    department: 'ANANTAPUR',
-    employeeId: '7010003',
-    email: 'suresh.babu@cdma.gov.in',
-    mobile: '9849900003',
-    birthday: '1976-11-08',
-    retirementDate: '2036-11-30',
-    joiningDate: '2001-08-20',
-    photo: 'https://readdy.ai/api/search-image?query=professional%20indian%20male%20government%20municipal%20commissioner%20formal%20suit%20confident%20expression%20office%20portrait%20administrative%20executive&width=400&height=400&seq=person-new-003&orientation=squarish'
-  },
-  '15200004': {
-    name: 'PADMAVATHI',
-    designation: 'Municipal Commissioner',
-    department: 'HINDUPUR',
-    employeeId: '7010004',
-    email: 'padmavathi@cdma.gov.in',
-    mobile: '9849900004',
-    birthday: '1980-02-14',
-    retirementDate: '2040-02-29',
-    joiningDate: '2005-01-10',
-    photo: 'https://readdy.ai/api/search-image?query=professional%20indian%20female%20government%20municipal%20commissioner%20formal%20attire%20professional%20expression%20office%20portrait%20administrative%20officer&width=400&height=400&seq=person-new-004&orientation=squarish'
-  },
-  '15200005': {
-    name: 'RANGA RAO',
-    designation: 'Municipal Commissioner',
-    department: 'ADONI',
-    employeeId: '7010005',
-    email: 'ranga.rao@cdma.gov.in',
-    mobile: '9849900005',
-    birthday: '1974-09-25',
-    retirementDate: '2034-09-30',
-    joiningDate: '1999-12-01',
-    photo: 'https://readdy.ai/api/search-image?query=professional%20indian%20male%20government%20municipal%20commissioner%20formal%20business%20attire%20determined%20expression%20office%20portrait%20administrative%20manager&width=400&height=400&seq=person-new-005&orientation=squarish'
-  }
-};
-
-export default function AddEmployeeModal({ isOpen, onClose, onAdd, existingData }: AddEmployeeModalProps) {
+export default function AddEmployeeModal({ isOpen, onClose, onAdd }: AddEmployeeModalProps) {
   const [cfmsId, setCfmsId] = useState('');
-  const [searchResult, setSearchResult] = useState<Partial<PersonnelData> | null>(null);
+  const [searchResult, setSearchResult] = useState<any | null>(null);
   const [searchStatus, setSearchStatus] = useState<'idle' | 'searching' | 'found' | 'not-found' | 'exists'>('idle');
-  const [responsibilities, setResponsibilities] = useState('Regular');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!cfmsId.trim()) return;
     
     setSearchStatus('searching');
+    setError(null);
     
-    // Simulate API call delay
-    setTimeout(() => {
-      // Check if already exists in current data
-      const existingEmployee = existingData.find(emp => emp.cfmsId === cfmsId.trim());
-      if (existingEmployee) {
+    try {
+      // First check if CFMS ID already exists in current system
+      const existingEmployees = await employeeService.getEmployees({ search: cfmsId.trim() });
+      
+      if (existingEmployees.rows.length > 0) {
         setSearchStatus('exists');
-        setSearchResult(existingEmployee);
+        setSearchResult(existingEmployees.rows[0]);
         return;
       }
 
-      // Search in CFMS database
-      const result = cfmsDatabase[cfmsId.trim()];
-      if (result) {
-        setSearchResult(result);
-        setSearchStatus('found');
+      // Search in entire database for CFMS ID (all employees, no position filter)
+      const result = await employeeService.searchAllEmployees({ 
+        search: cfmsId.trim()
+      });
+      
+      if (result.rows.length > 0) {
+        const employee = result.rows.find(emp => 
+          emp.cfms_id === cfmsId.trim() || 
+          emp.employeeid === cfmsId.trim()
+        );
+        
+        if (employee) {
+          setSearchResult(employee);
+          setSearchStatus('found');
+        } else {
+          setSearchStatus('not-found');
+          setSearchResult(null);
+        }
       } else {
-        setSearchResult(null);
         setSearchStatus('not-found');
+        setSearchResult(null);
       }
-    }, 500);
+    } catch (err: any) {
+      setError('Error searching for CFMS ID');
+      setSearchStatus('idle');
+      setSearchResult(null);
+    }
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!searchResult || searchStatus !== 'found') return;
 
-    const newEmployee: PersonnelData = {
-      id: Date.now(),
-      name: searchResult.name || '',
-      designation: searchResult.designation || 'Municipal Commissioner',
-      department: searchResult.department || '',
-      cfmsId: cfmsId.trim(),
-      employeeId: searchResult.employeeId || '',
-      email: searchResult.email || '',
-      phone: searchResult.mobile || '',
-      mobile: searchResult.mobile || '',
-      office: `${searchResult.department} Municipal Office`,
-      birthday: searchResult.birthday || '',
-      retirementDate: searchResult.retirementDate || '',
-      joiningDate: searchResult.joiningDate || '',
-      currentPosition: `Municipal Commissioner - ${searchResult.department}`,
-      previousPosition: 'Assistant Commissioner',
-      charges: 'None',
-      responsibilities: responsibilities,
-      photo: searchResult.photo || ''
-    };
+    setLoading(true);
+    setError(null);
 
-    onAdd(newEmployee);
-    handleReset();
-    onClose();
-  };
+    try {
+      // Add the found employee to the system
+      const employeeData = {
+        ...searchResult,
+        // Ensure required fields are present
+        employeeid: searchResult.employeeid || `EMP${Date.now()}`,
+        cfms_id: searchResult.cfms_id || cfmsId,
+        name: searchResult.name || '',
+        designation: searchResult.designation || '',
+        department_name: searchResult.department_name || '',
+        mobileno: searchResult.mobileno || '',
+        email1: searchResult.email1 || '',
+      };
 
-  const handleReset = () => {
-    setCfmsId('');
-    setSearchResult(null);
-    setSearchStatus('idle');
-    setResponsibilities('Regular');
+      const result = await employeeService.addEmployee(employeeData);
+      
+      if (result.success) {
+        onAdd(); // Refresh the employee list
+        handleClose();
+      } else {
+        setError(result.message || 'Failed to add employee');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to add employee');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleClose = () => {
-    handleReset();
+    setCfmsId('');
+    setSearchResult(null);
+    setSearchStatus('idle');
+    setError(null);
     onClose();
   };
 
@@ -188,7 +123,7 @@ export default function AddEmployeeModal({ isOpen, onClose, onAdd, existingData 
                 <i className="ri-user-add-line text-white text-lg"></i>
               </div>
               <div>
-                <h2 className="text-white font-semibold text-base">Add New Commissioner</h2>
+                <h2 className="text-white font-semibold text-base">Add Employee</h2>
                 <p className="text-teal-100 text-xs">Search by CFMS ID</p>
               </div>
             </div>
@@ -203,6 +138,15 @@ export default function AddEmployeeModal({ isOpen, onClose, onAdd, existingData 
 
         {/* Content */}
         <div className="p-5">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-3">
+                <i className="ri-error-warning-line text-red-600 text-lg"></i>
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            </div>
+          )}
+
           {/* Search Input */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">CFMS ID</label>
@@ -217,7 +161,7 @@ export default function AddEmployeeModal({ isOpen, onClose, onAdd, existingData 
                     setSearchResult(null);
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="Enter CFMS ID (e.g., 15200001)"
+                  placeholder="Enter CFMS ID"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                 />
               </div>
@@ -239,10 +183,6 @@ export default function AddEmployeeModal({ isOpen, onClose, onAdd, existingData 
                 )}
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-1.5">
-              <i className="ri-information-line mr-1"></i>
-              Try: 15200001, 15200002, 15200003, 15200004, 15200005
-            </p>
           </div>
 
           {/* Search Results */}
@@ -277,11 +217,13 @@ export default function AddEmployeeModal({ isOpen, onClose, onAdd, existingData 
           {searchStatus === 'found' && searchResult && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4">
               <div className="flex items-start gap-3">
-                <img 
-                  src={searchResult.photo} 
-                  alt={searchResult.name}
-                  className="w-14 h-14 rounded-lg object-cover flex-shrink-0 border-2 border-white shadow-sm"
-                />
+                {searchResult.photo && (
+                  <img 
+                    src={searchResult.photo} 
+                    alt={searchResult.name}
+                    className="w-14 h-14 rounded-lg object-cover flex-shrink-0 border-2 border-white shadow-sm"
+                  />
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <i className="ri-checkbox-circle-fill text-emerald-600"></i>
@@ -289,7 +231,7 @@ export default function AddEmployeeModal({ isOpen, onClose, onAdd, existingData 
                   </div>
                   <h3 className="font-semibold text-gray-900 text-sm truncate">{searchResult.name}</h3>
                   <p className="text-xs text-gray-600">{searchResult.designation}</p>
-                  <p className="text-xs text-gray-500">{searchResult.department}</p>
+                  <p className="text-xs text-gray-500">{searchResult.department_name}</p>
                 </div>
               </div>
               
@@ -297,53 +239,36 @@ export default function AddEmployeeModal({ isOpen, onClose, onAdd, existingData 
               <div className="mt-3 pt-3 border-t border-emerald-200 grid grid-cols-2 gap-2 text-xs">
                 <div>
                   <span className="text-gray-500">Employee ID:</span>
-                  <span className="ml-1 font-medium text-gray-700">{searchResult.employeeId}</span>
+                  <span className="ml-1 font-medium text-gray-700">{searchResult.employeeid}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">CFMS ID:</span>
+                  <span className="ml-1 font-medium text-gray-700">{searchResult.cfms_id}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">Mobile:</span>
-                  <span className="ml-1 font-medium text-gray-700">{searchResult.mobile}</span>
+                  <span className="ml-1 font-medium text-gray-700">{searchResult.mobileno}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">DOB:</span>
-                  <span className="ml-1 font-medium text-gray-700">
-                    {safeFormatDate(searchResult.birthday, 'N/A')}
-                  </span>
+                  <span className="text-gray-500">Email:</span>
+                  <span className="ml-1 font-medium text-gray-700">{searchResult.email1}</span>
                 </div>
-                <div>
-                  <span className="text-gray-500">DOR:</span>
-                  <span className="ml-1 font-medium text-gray-700">
-                    {safeFormatDate(searchResult.retirementDate, 'N/A')}
-                  </span>
-                </div>
-              </div>
-
-              {/* Status Selection */}
-              <div className="mt-3 pt-3 border-t border-emerald-200">
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Assign Status</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setResponsibilities('Regular')}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                      responsibilities === 'Regular'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-white border border-gray-300 text-gray-700 hover:border-emerald-400'
-                    }`}
-                  >
-                    <i className="ri-user-follow-line mr-1"></i>
-                    Regular
-                  </button>
-                  <button
-                    onClick={() => setResponsibilities('Incharge')}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                      responsibilities === 'Incharge'
-                        ? 'bg-amber-600 text-white shadow-sm'
-                        : 'bg-white border border-gray-300 text-gray-700 hover:border-amber-400'
-                    }`}
-                  >
-                    <i className="ri-user-shared-line mr-1"></i>
-                    Incharge
-                  </button>
-                </div>
+                {searchResult.dob && (
+                  <div>
+                    <span className="text-gray-500">DOB:</span>
+                    <span className="ml-1 font-medium text-gray-700">
+                      {safeFormatDate(searchResult.dob, 'N/A')}
+                    </span>
+                  </div>
+                )}
+                {searchResult.dor && (
+                  <div>
+                    <span className="text-gray-500">DOR:</span>
+                    <span className="ml-1 font-medium text-gray-700">
+                      {safeFormatDate(searchResult.dor, 'N/A')}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -359,11 +284,20 @@ export default function AddEmployeeModal({ isOpen, onClose, onAdd, existingData 
           </button>
           <button
             onClick={handleAdd}
-            disabled={searchStatus !== 'found'}
+            disabled={searchStatus !== 'found' || loading}
             className="px-5 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium cursor-pointer flex items-center gap-2 whitespace-nowrap"
           >
-            <i className="ri-user-add-line"></i>
-            Add Commissioner
+            {loading ? (
+              <>
+                <i className="ri-loader-4-line animate-spin"></i>
+                Adding...
+              </>
+            ) : (
+              <>
+                <i className="ri-user-add-line"></i>
+                Add Employee
+              </>
+            )}
           </button>
         </div>
       </div>
