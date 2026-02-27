@@ -28,7 +28,7 @@ export default function Home() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [districtFilter, setDistrictFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
-  const [designationFilter, setDesignationFilter] = useState<string>("Municipal Commissioner");
+  const [designationFilter, setDesignationFilter] = useState<string>("all");
   const [cardFilter, setCardFilter] = useState<string | null>(null);
   
   // Card filter state for API params
@@ -119,11 +119,7 @@ export default function Home() {
           params.retiringYear = cardRetiringYearFilter;
         }
 
-        // Filter commissioners and directors by position_name
-        params.position = "COMMISSIONER_DIRECTOR";
-
-        // Note: position filter used to show commissioners and directors only by default
-        // To show all employees, remove the position filter above
+        // Data comes from cdma_cmsnr_drctry — no position filter needed
 
         console.log('[Home] Fetching employees with params:', params);
         console.log('[CardClick] filters:', params);
@@ -456,16 +452,9 @@ export default function Home() {
     // In a real app, you would also call an API to add the employee
   };
 
-  const handleRemoveEmployee = (cfmsId: string) => {
-    setPersonnelList(prev => {
-      // Safety check: ensure prev is an array
-      if (!Array.isArray(prev)) {
-        console.error('[Home] handleRemoveEmployee: prev is not an array:', prev);
-        return [];
-      }
-      return prev.filter(emp => emp.cfmsId !== cfmsId);
-    });
-    // In a real app, you would also call an API to remove the employee
+  const handleRemoveEmployee = () => {
+    // Refresh the list after removal (API handles the actual delete)
+    refreshEmployees();
   };
 
   const currentFilterInfo = cardFilter ? filterLabels[cardFilter] : null;
@@ -754,7 +743,6 @@ export default function Home() {
         isOpen={isRemoveModalOpen}
         onClose={() => setIsRemoveModalOpen(false)}
         onRemove={handleRemoveEmployee}
-        existingData={personnelList}
       />
     </div>
   );

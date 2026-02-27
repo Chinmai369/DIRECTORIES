@@ -224,6 +224,19 @@ export const employeeService = {
     console.log('[API] Add employee response:', response.data);
     return response.data;
   },
+
+  /**
+   * Remove employee from directory by CFMS ID
+   */
+  removeEmployee: async (cfmsId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    console.log('[API] Removing employee with CFMS ID:', cfmsId);
+    const response = await api.delete(`/employees/remove/${cfmsId}`);
+    console.log('[API] Remove employee response:', response.data);
+    return response.data;
+  },
 };
 
 export default api;
